@@ -7,6 +7,7 @@ import { BackgroundPicker } from './BackgroundPicker';
 import { clampZoom, computeFitViewport, screenToWorld } from '../utils/canvas';
 import { getGridDotColor } from '../utils/color';
 import { addMediaFilesAtPosition, getDroppedFiles } from '../utils/mediaUpload';
+import { isInteractiveMediaTarget } from '../utils/youtube';
 import type { Viewport } from '../types';
 
 interface InfiniteCanvasProps {
@@ -187,6 +188,8 @@ export function InfiniteCanvas({
   }, [handleWheel]);
 
   const handlePointerDown = (e: React.PointerEvent) => {
+    if (isInteractiveMediaTarget(e.target)) return;
+
     if (readOnly) {
       setIsPanning(true);
       panStart.current = { x: e.clientX, y: e.clientY, vx: viewport.x, vy: viewport.y };

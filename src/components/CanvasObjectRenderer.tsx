@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import type { CanvasObject, ResizeHandle } from '../types';
 import { useStore } from '../store/useStore';
-import { youtubeEmbedUrl } from '../utils/youtube';
+import { youtubeEmbedUrl, sendYouTubeCommand, isInteractiveMediaTarget } from '../utils/youtube';
 import { FONT_FAMILIES } from '../utils/canvas';
 import { TextToolbar } from './TextToolbar';
 
@@ -31,6 +31,7 @@ export function CanvasObjectRenderer({
 
   const handlePointerDown = (e: React.PointerEvent) => {
     if (readOnly || object.uploading) return;
+    if (object.type === 'youtube' && isInteractiveMediaTarget(e.target)) return;
     e.stopPropagation();
     selectObject(object.id);
     setIsDragging(true);
@@ -40,7 +41,7 @@ export function CanvasObjectRenderer({
       objX: object.x,
       objY: object.y,
     };
-    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
   };
 
   const handleResizePointerDown = (e: React.PointerEvent, handle: ResizeHandle) => {
@@ -118,25 +119,28 @@ export function CanvasObjectRenderer({
     fontStyle: object.fontStyle ?? 'normal',
   };
 
+  const isYouTube = object.type === 'youtube';
+  const isText = object.type === 'text';
+
   return (
     <div
-      className={`canvas-object ${isSelected ? 'canvas-object--selected' : ''} ${readOnly ? 'canvas-object--readonly' : ''} ${object.uploading ? 'canvas-object--uploading' : ''}`}
+      className={`canvas-object ${isSelected ? 'canvas-object--selected' : ''} ${readOnly ? 'canvas-object--readonly' : ''} ${object.uploading ? 'canvas-object--uploading' : ''} ${isYouTube ? 'canvas-object--youtube' : ''} ${isText ? 'canvas-object--text' : ''}`}
       style={{
         left: object.x,
         top: object.y,
         width: object.width,
         height: object.height,
       }}
-      onPointerDown={handlePointerDown}
-      onPointerMove={handlePointerMove}
-      onPointerUp={handlePointerUp}
+      onPointerDown={isYouTube || isText ? undefined : handlePointerDown}
+      onPointerMove={isYouTube || isText ? undefined : handlePointerMove}
+      onPointerUp={isYouTube || isText ? undefined : handlePointerUp}
     >
       {object.type === 'image' && object.src && (
         <img src={object.src} alt="" draggable={false} className="canvas-object__media" />
       )}
 
       {object.type === 'video' && object.src && (
-        <VideoMedia src={object.src} isSelected={isSelected} readOnly={readOnly} />
+        <VideoMedia src={object.src} isSelected={isSelected} />
       )}
 
       {object.uploading && (
@@ -147,11 +151,21 @@ export function CanvasObjectRenderer({
       )}
 
       {object.type === 'youtube' && object.youtubeId && (
-        <YouTubeEmbed
-          videoId={object.youtubeId}
-          isSelected={isSelected}
-          readOnly={readOnly}
-        />
+        <>
+          {!readOnly && (
+            <div className="canvas-object__youtube-chrome">
+              <div
+                className="canvas-object__drag-handle"
+                onPointerDown={handlePointerDown}
+                onPointerMove={handlePointerMove}
+                onPointerUp={handlePointerUp}
+              >
+                Move
+              </div>
+            </div>
+          )}
+          <YouTubeEmbed videoId={object.youtubeId} isSelected={isSelected} />
+        </>
       )}
 
       {object.type === 'text' && (
@@ -185,11 +199,9 @@ export function CanvasObjectRenderer({
 function VideoMedia({
   src,
   isSelected,
-  readOnly,
 }: {
   src: string;
   isSelected: boolean;
-  readOnly: boolean;
 }) {
   const mediaAudioEnabled = useStore((s) => s.mediaAudioEnabled);
   const enableMediaAudio = useStore((s) => s.enableMediaAudio);
@@ -226,8 +238,9 @@ function VideoMedia({
       loop
       playsInline
       className="canvas-object__media canvas-object__media--video"
+      onPointerDown={(e) => e.stopPropagation()}
       onClick={(e) => {
-        if (readOnly) e.stopPropagation();
+        e.stopPropagation();
         tryUnmute();
       }}
     />
@@ -237,30 +250,60 @@ function VideoMedia({
 function YouTubeEmbed({
   videoId,
   isSelected,
-  readOnly,
 }: {
   videoId: string;
   isSelected: boolean;
-  readOnly: boolean;
 }) {
   const mediaAudioEnabled = useStore((s) => s.mediaAudioEnabled);
   const enableMediaAudio = useStore((s) => s.enableMediaAudio);
-  const shouldUnmute = isSelected || mediaAudioEnabled;
-  const embedSrc = youtubeEmbedUrl(videoId, !shouldUnmute);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const embedSrc = youtubeEmbedUrl(videoId);
+
+  const tryUnmute = useCallback(() => {
+    const iframe = iframeRef.current;
+    if (!iframe) return;
+    enableMediaAudio();
+    sendYouTubeCommand(iframe, 'unMute');
+    sendYouTubeCommand(iframe, 'playVideo');
+  }, [enableMediaAudio]);
+
+  useEffect(() => {
+    const iframe = iframeRef.current;
+    if (!iframe) return;
+
+    const onLoad = () => {
+      if (isSelected || mediaAudioEnabled) tryUnmute();
+    };
+
+    iframe.addEventListener('load', onLoad);
+    return () => iframe.removeEventListener('load', onLoad);
+  }, [embedSrc, isSelected, mediaAudioEnabled, tryUnmute]);
+
+  useEffect(() => {
+    if (isSelected || mediaAudioEnabled) tryUnmute();
+  }, [isSelected, mediaAudioEnabled, tryUnmute]);
+
+  const blockCanvasPointer = (e: React.PointerEvent) => {
+    e.stopPropagation();
+  };
 
   return (
-    <iframe
-      key={embedSrc}
-      src={embedSrc}
-      title="YouTube embed"
-      className="canvas-object__media canvas-object__youtube"
-      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-      allowFullScreen
-      onClick={() => enableMediaAudio()}
-      onPointerDown={(e) => {
-        if (readOnly) e.stopPropagation();
-      }}
-    />
+    <div
+      className="canvas-object__youtube-wrap"
+      onPointerDown={blockCanvasPointer}
+      onPointerMove={blockCanvasPointer}
+      onPointerUp={blockCanvasPointer}
+    >
+      <iframe
+        ref={iframeRef}
+        src={embedSrc}
+        title="YouTube embed"
+        className="canvas-object__youtube"
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+        allowFullScreen
+        onPointerDown={blockCanvasPointer}
+      />
+    </div>
   );
 }
 
@@ -277,14 +320,90 @@ function TextContent({
   readOnly: boolean;
   style: React.CSSProperties;
 }) {
+  const selectObject = useStore((s) => s.selectObject);
   const updateObject = useStore((s) => s.updateObject);
   const ref = useRef<HTMLDivElement>(null);
+  const isComposing = useRef(false);
+  const lastSyncedText = useRef(object.text ?? '');
+  const dragState = useRef<{
+    startX: number;
+    startY: number;
+    objX: number;
+    objY: number;
+    dragging: boolean;
+  } | null>(null);
 
   useEffect(() => {
-    if (isSelected && !readOnly && ref.current) {
+    const el = ref.current;
+    if (!el || isComposing.current) return;
+    const nextText = object.text ?? '';
+    if (nextText !== lastSyncedText.current && el.textContent !== nextText) {
+      el.textContent = nextText;
+      lastSyncedText.current = nextText;
+    }
+  }, [object.text, object.id]);
+
+  useEffect(() => {
+    if (isSelected && !readOnly && ref.current && !dragState.current?.dragging) {
       ref.current.focus();
     }
   }, [isSelected, readOnly]);
+
+  const getZoom = () =>
+    useStore.getState().slides.find((s) => s.id === slideId)?.viewport.zoom ?? 1;
+
+  const syncText = (text: string) => {
+    lastSyncedText.current = text;
+    updateObject(slideId, object.id, { text });
+  };
+
+  const handlePointerDown = (e: React.PointerEvent) => {
+    if (readOnly) return;
+    e.stopPropagation();
+    selectObject(object.id);
+    dragState.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      objX: object.x,
+      objY: object.y,
+      dragging: false,
+    };
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+  };
+
+  const handlePointerMove = (e: React.PointerEvent) => {
+    if (readOnly || !dragState.current) return;
+
+    const zoom = getZoom();
+    const dx = (e.clientX - dragState.current.startX) / zoom;
+    const dy = (e.clientY - dragState.current.startY) / zoom;
+    const moved = Math.hypot(e.clientX - dragState.current.startX, e.clientY - dragState.current.startY);
+
+    if (!dragState.current.dragging && moved > 5) {
+      dragState.current.dragging = true;
+      ref.current?.blur();
+    }
+
+    if (dragState.current.dragging) {
+      updateObject(slideId, object.id, {
+        x: dragState.current.objX + dx,
+        y: dragState.current.objY + dy,
+      });
+    }
+  };
+
+  const handlePointerUp = () => {
+    if (!dragState.current || readOnly) {
+      dragState.current = null;
+      return;
+    }
+
+    if (!dragState.current.dragging) {
+      ref.current?.focus();
+    }
+
+    dragState.current = null;
+  };
 
   return (
     <div
@@ -293,12 +412,24 @@ function TextContent({
       style={style}
       contentEditable={!readOnly}
       suppressContentEditableWarning
-      onPointerDown={(e) => e.stopPropagation()}
-      onInput={(e) => {
-        updateObject(slideId, object.id, { text: e.currentTarget.textContent ?? '' });
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onCompositionStart={() => {
+        isComposing.current = true;
       }}
-    >
-      {object.text}
-    </div>
+      onCompositionEnd={(e) => {
+        isComposing.current = false;
+        syncText(e.currentTarget.textContent ?? '');
+      }}
+      onInput={(e) => {
+        if (isComposing.current) return;
+        syncText(e.currentTarget.textContent ?? '');
+      }}
+      onBlur={(e) => {
+        if (isComposing.current) return;
+        syncText(e.currentTarget.textContent ?? '');
+      }}
+    />
   );
 }

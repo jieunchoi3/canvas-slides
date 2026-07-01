@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { useStore } from '../store/useStore';
 import type { CanvasObject } from '../types';
 import { FONT_FAMILIES, TEXT_COLORS } from '../utils/canvas';
@@ -7,8 +8,29 @@ interface TextToolbarProps {
   slideId: string;
 }
 
+function clampFontSize(size: number) {
+  return Math.min(200, Math.max(8, size));
+}
+
 export function TextToolbar({ object, slideId }: TextToolbarProps) {
   const updateObject = useStore((s) => s.updateObject);
+  const fontSize = object.fontSize ?? 24;
+  const [sizeInput, setSizeInput] = useState(String(fontSize));
+
+  useEffect(() => {
+    setSizeInput(String(fontSize));
+  }, [fontSize]);
+
+  const commitFontSize = () => {
+    const parsed = Number.parseInt(sizeInput, 10);
+    if (Number.isNaN(parsed)) {
+      setSizeInput(String(fontSize));
+      return;
+    }
+    const next = clampFontSize(parsed);
+    setSizeInput(String(next));
+    updateObject(slideId, object.id, { fontSize: next });
+  };
 
   return (
     <div
@@ -32,17 +54,33 @@ export function TextToolbar({ object, slideId }: TextToolbarProps) {
           type="button"
           className="text-toolbar__btn"
           onClick={() =>
-            updateObject(slideId, object.id, { fontSize: Math.max(8, (object.fontSize ?? 24) - 2) })
+            updateObject(slideId, object.id, { fontSize: clampFontSize(fontSize - 2) })
           }
         >
           −
         </button>
-        <span className="text-toolbar__size-value">{object.fontSize ?? 24}</span>
+        <input
+          type="text"
+          inputMode="numeric"
+          className="text-toolbar__size-input"
+          value={sizeInput}
+          aria-label="Font size"
+          onChange={(e) => setSizeInput(e.target.value.replace(/[^\d]/g, ''))}
+          onBlur={commitFontSize}
+          onKeyDown={(e) => {
+            e.stopPropagation();
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              commitFontSize();
+              (e.target as HTMLInputElement).blur();
+            }
+          }}
+        />
         <button
           type="button"
           className="text-toolbar__btn"
           onClick={() =>
-            updateObject(slideId, object.id, { fontSize: Math.min(200, (object.fontSize ?? 24) + 2) })
+            updateObject(slideId, object.id, { fontSize: clampFontSize(fontSize + 2) })
           }
         >
           +

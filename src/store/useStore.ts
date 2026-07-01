@@ -20,6 +20,7 @@ interface AppStore {
   hydrated: boolean;
   loadError: string | null;
   mediaAudioEnabled: boolean;
+  arrowDrawingMode: boolean;
 
   addSlide: () => Promise<void>;
   deleteSlide: (id: string) => Promise<void>;
@@ -41,6 +42,7 @@ interface AppStore {
   prevSlide: () => void;
   setPresentationSlideIndex: (index: number) => void;
   enableMediaAudio: () => void;
+  setArrowDrawingMode: (enabled: boolean) => void;
 }
 
 export const useStore = create<AppStore>((set, get) => ({
@@ -52,6 +54,7 @@ export const useStore = create<AppStore>((set, get) => ({
   hydrated: false,
   loadError: null,
   mediaAudioEnabled: false,
+  arrowDrawingMode: false,
 
   addSlide: async () => {
     const sortOrder = get().slides.length;
@@ -159,14 +162,32 @@ export const useStore = create<AppStore>((set, get) => ({
       void deleteMediaByUrl(obj.src);
     }
 
-    set((s) => ({
-      slides: s.slides.map((sl) =>
-        sl.id === slideId
-          ? { ...sl, objects: sl.objects.filter((o) => o.id !== objectId) }
-          : sl,
-      ),
-      selectedObjectId: s.selectedObjectId === objectId ? null : s.selectedObjectId,
-    }));
+    set((s) => {
+      const slides = s.slides.map((sl) => {
+        if (sl.id !== slideId) return sl;
+        const objects = sl.objects.filter((o) => {
+          if (o.id === objectId) return false;
+          if (o.type === 'arrow') {
+            if (
+              (o.start && 'attachedTo' in o.start && o.start.attachedTo === objectId) ||
+              (o.end && 'attachedTo' in o.end && o.end.attachedTo === objectId)
+            ) {
+              return false;
+            }
+          }
+          return true;
+        });
+        return { ...sl, objects };
+      });
+
+      const activeSlide = slides.find((sl) => sl.id === slideId);
+      const selectedStillExists = activeSlide?.objects.some((o) => o.id === s.selectedObjectId);
+
+      return {
+        slides,
+        selectedObjectId: selectedStillExists ? s.selectedObjectId : null,
+      };
+    });
   },
 
   selectObject: (id) => set({ selectedObjectId: id }),
@@ -177,10 +198,11 @@ export const useStore = create<AppStore>((set, get) => ({
       presentationSlideIndex: 0,
       selectedObjectId: null,
       mediaAudioEnabled: false,
+      arrowDrawingMode: false,
     });
   },
 
-  exitPresentation: () => set({ isPresenting: false, mediaAudioEnabled: false }),
+  exitPresentation: () => set({ isPresenting: false, mediaAudioEnabled: false, arrowDrawingMode: false }),
 
   nextSlide: () => {
     const { slides, presentationSlideIndex } = get();
@@ -199,6 +221,8 @@ export const useStore = create<AppStore>((set, get) => ({
   setPresentationSlideIndex: (index) => set({ presentationSlideIndex: index }),
 
   enableMediaAudio: () => set({ mediaAudioEnabled: true }),
+
+  setArrowDrawingMode: (enabled) => set({ arrowDrawingMode: enabled }),
 }));
 
 let saveTimeout: ReturnType<typeof setTimeout> | undefined;

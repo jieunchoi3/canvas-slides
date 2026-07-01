@@ -309,6 +309,8 @@ function SlidePreviewIcon({ type }: { type: string }) {
       return <YouTubeIcon />;
     case 'text':
       return <TextIcon />;
+    case 'arrow':
+      return <ArrowIcon />;
     default:
       return <EmptyIcon />;
   }
@@ -375,4 +377,18 @@ function TextIcon() {
   );
 }
 
-export { ImageIcon, VideoIcon, YouTubeIcon, TextIcon };
+function ArrowIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+      <path
+        d="M2 7h8M8 4l3 3-3 3"
+        stroke="currentColor"
+        strokeWidth="1.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+export { ImageIcon, VideoIcon, YouTubeIcon, TextIcon, ArrowIcon };

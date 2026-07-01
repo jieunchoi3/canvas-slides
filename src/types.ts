@@ -1,4 +1,10 @@
-export type CanvasObjectType = 'image' | 'video' | 'youtube' | 'text';
+export type CanvasObjectType = 'image' | 'video' | 'youtube' | 'text' | 'arrow';
+
+export type AnchorPoint = 'top' | 'right' | 'bottom' | 'left' | 'center';
+
+export type ArrowEndpoint =
+  | { x: number; y: number }
+  | { attachedTo: string; anchor: AnchorPoint };
 
 export interface CanvasObject {
   id: string;
@@ -17,6 +23,12 @@ export interface CanvasObject {
   fontWeight?: 'normal' | 'bold';
   fontStyle?: 'normal' | 'italic';
   uploading?: boolean;
+  start?: ArrowEndpoint;
+  end?: ArrowEndpoint;
+  strokeColor?: string;
+  strokeWidth?: number;
+  arrowheadStart?: boolean;
+  arrowheadEnd?: boolean;
 }
 
 export interface Viewport {

@@ -1,4 +1,5 @@
 import type { CanvasObject, Viewport } from '../types';
+import { resolveEndpoint } from './arrows';
 
 export function generateId(): string {
   return crypto.randomUUID();
@@ -20,6 +21,16 @@ export function computeFitViewport(
   let maxY = -Infinity;
 
   for (const obj of objects) {
+    if (obj.type === 'arrow' && obj.start && obj.end) {
+      const p1 = resolveEndpoint(obj.start, objects);
+      const p2 = resolveEndpoint(obj.end, objects);
+      minX = Math.min(minX, p1.x, p2.x);
+      minY = Math.min(minY, p1.y, p2.y);
+      maxX = Math.max(maxX, p1.x, p2.x);
+      maxY = Math.max(maxY, p1.y, p2.y);
+      continue;
+    }
+
     minX = Math.min(minX, obj.x);
     minY = Math.min(minY, obj.y);
     maxX = Math.max(maxX, obj.x + obj.width);

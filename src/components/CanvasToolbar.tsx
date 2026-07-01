@@ -5,7 +5,7 @@ import { addMediaFilesAtPosition } from '../utils/mediaUpload';
 import { parseYouTubeId } from '../utils/youtube';
 import type { CanvasObject, Viewport } from '../types';
 import { generateId } from '../utils/canvas';
-import { ImageIcon, VideoIcon, YouTubeIcon, TextIcon } from './Sidebar';
+import { ImageIcon, VideoIcon, YouTubeIcon, TextIcon, ArrowIcon } from './Sidebar';
 
 interface CanvasToolbarProps {
   slideId: string;
@@ -17,6 +17,9 @@ export function CanvasToolbar({ slideId, containerRef, viewport }: CanvasToolbar
   const addObject = useStore((s) => s.addObject);
   const updateObject = useStore((s) => s.updateObject);
   const deleteObject = useStore((s) => s.deleteObject);
+  const arrowDrawingMode = useStore((s) => s.arrowDrawingMode);
+  const setArrowDrawingMode = useStore((s) => s.setArrowDrawingMode);
+  const selectObject = useStore((s) => s.selectObject);
   const [showYouTube, setShowYouTube] = useState(false);
   const [youtubeUrl, setYoutubeUrl] = useState('');
   const imageInputRef = useRef<HTMLInputElement>(null);
@@ -31,6 +34,7 @@ export function CanvasToolbar({ slideId, containerRef, viewport }: CanvasToolbar
   };
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    setArrowDrawingMode(false);
     const fileList = e.target.files;
     if (!fileList?.length) return;
     const { x, y } = getCenterWorld();
@@ -39,6 +43,7 @@ export function CanvasToolbar({ slideId, containerRef, viewport }: CanvasToolbar
   };
 
   const handleVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    setArrowDrawingMode(false);
     const fileList = e.target.files;
     if (!fileList?.length) return;
     const { x, y } = getCenterWorld();
@@ -47,6 +52,7 @@ export function CanvasToolbar({ slideId, containerRef, viewport }: CanvasToolbar
   };
 
   const handleAddText = () => {
+    setArrowDrawingMode(false);
     const { x, y } = getCenterWorld();
     const obj: CanvasObject = {
       id: generateId(),
@@ -83,6 +89,11 @@ export function CanvasToolbar({ slideId, containerRef, viewport }: CanvasToolbar
     setShowYouTube(false);
   };
 
+  const handleToggleArrow = () => {
+    selectObject(null);
+    setArrowDrawingMode(!arrowDrawingMode);
+  };
+
   return (
     <>
       <div className="canvas-toolbar">
@@ -92,11 +103,19 @@ export function CanvasToolbar({ slideId, containerRef, viewport }: CanvasToolbar
         <button type="button" className="canvas-toolbar__btn" onClick={() => videoInputRef.current?.click()} title="Add videos">
           <VideoIcon />
         </button>
-        <button type="button" className="canvas-toolbar__btn" onClick={() => setShowYouTube(true)} title="Add YouTube">
+        <button type="button" className="canvas-toolbar__btn" onClick={() => { setArrowDrawingMode(false); setShowYouTube(true); }} title="Add YouTube">
           <YouTubeIcon />
         </button>
         <button type="button" className="canvas-toolbar__btn" onClick={handleAddText} title="Add text">
           <TextIcon />
+        </button>
+        <button
+          type="button"
+          className={`canvas-toolbar__btn ${arrowDrawingMode ? 'canvas-toolbar__btn--active' : ''}`}
+          onClick={handleToggleArrow}
+          title="Add arrow"
+        >
+          <ArrowIcon />
         </button>
       </div>
 

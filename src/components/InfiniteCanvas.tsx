@@ -1,6 +1,8 @@
 import { useRef, useCallback, useEffect, useState } from 'react';
 import { useStore } from '../store/useStore';
 import { CanvasObjectRenderer } from './CanvasObjectRenderer';
+import { ArrowLayer, ArrowDrawOverlay } from './ArrowLayer';
+import { hitTestArrow } from '../utils/arrows';
 import { CanvasToolbar } from './CanvasToolbar';
 import { ZoomControls } from './ZoomControls';
 import { BackgroundPicker } from './BackgroundPicker';
@@ -40,10 +42,12 @@ export function InfiniteCanvas({
   const addObject = useStore((s) => s.addObject);
   const updateObject = useStore((s) => s.updateObject);
   const deleteObject = useStore((s) => s.deleteObject);
+  const arrowDrawingMode = useStore((s) => s.arrowDrawingMode);
 
   const [isPanning, setIsPanning] = useState(false);
   const [spaceHeld, setSpaceHeld] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
+  const [arrowPreview, setArrowPreview] = useState<{ start: { x: number; y: number }; current: { x: number; y: number } } | null>(null);
   const [localViewport, setLocalViewport] = useState<Viewport | null>(null);
   const panStart = useRef<{ x: number; y: number; vx: number; vy: number } | null>(null);
   const lastPointerWorld = useRef<{ x: number; y: number } | null>(null);
@@ -224,6 +228,18 @@ export function InfiniteCanvas({
 
   const handlePointerDown = (e: React.PointerEvent) => {
     if (isInteractiveMediaTarget(e.target)) return;
+    if (!readOnly && arrowDrawingMode) return;
+
+    if (!readOnly && containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect();
+      const world = screenToWorld(e.clientX, e.clientY, rect, viewport);
+      const hitArrow = hitTestArrow(world.x, world.y, objects, viewport.zoom);
+      if (hitArrow) {
+        e.stopPropagation();
+        selectObject(hitArrow.id);
+        return;
+      }
+    }
 
     if (readOnly) {
       setIsPanning(true);
@@ -321,7 +337,7 @@ export function InfiniteCanvas({
   return (
     <div
       ref={containerRef}
-      className={`infinite-canvas ${isPanning || spaceHeld ? 'infinite-canvas--panning' : ''} ${isDragOver ? 'infinite-canvas--drag-over' : ''}`}
+      className={`infinite-canvas ${isPanning || spaceHeld ? 'infinite-canvas--panning' : ''} ${isDragOver ? 'infinite-canvas--drag-over' : ''} ${arrowDrawingMode ? 'infinite-canvas--arrow-drawing' : ''}`}
       style={{
         backgroundColor,
         backgroundImage: `radial-gradient(circle, ${gridDotColor} 1px, transparent 1px)`,
@@ -340,7 +356,9 @@ export function InfiniteCanvas({
           transform: `translate(${viewport.x}px, ${viewport.y}px) scale(${viewport.zoom})`,
         }}
       >
-        {objects.map((obj) => (
+        {objects
+          .filter((obj) => obj.type !== 'arrow')
+          .map((obj) => (
           <CanvasObjectRenderer
             key={obj.id}
             object={obj}
@@ -349,7 +367,25 @@ export function InfiniteCanvas({
             readOnly={readOnly}
           />
         ))}
+        <ArrowLayer
+          slideId={resolvedSlideId}
+          objects={objects}
+          readOnly={readOnly}
+          preview={arrowPreview}
+          containerRef={containerRef}
+          viewport={viewport}
+        />
       </div>
+
+      {!readOnly && (
+        <ArrowDrawOverlay
+          slideId={resolvedSlideId}
+          objects={objects}
+          containerRef={containerRef}
+          viewport={viewport}
+          onPreviewChange={setArrowPreview}
+        />
+      )}
 
       {!showEditorChrome && showNavControls && (
         <div className="canvas-bottom-bar canvas-bottom-bar--presentation">

@@ -485,7 +485,8 @@ select {
   border-radius: 2px;
 }
 
-.canvas-object--youtube {
+.canvas-object--youtube,
+.canvas-object--video {
   cursor: default;
 }
 
@@ -504,20 +505,20 @@ select {
   pointer-events: auto;
 }
 
-.canvas-object__youtube-chrome {
+.canvas-object__media-chrome {
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
   height: 28px;
-  z-index: 2;
+  z-index: 3;
   opacity: 0;
   transition: opacity 150ms ease;
   pointer-events: none;
 }
 
-.canvas-object--youtube:hover .canvas-object__youtube-chrome,
-.canvas-object--youtube.canvas-object--selected .canvas-object__youtube-chrome {
+.canvas-object--youtube:hover .canvas-object__media-chrome,
+.canvas-object--youtube.canvas-object--selected .canvas-object__media-chrome {
   opacity: 1;
   pointer-events: auto;
 }
@@ -540,7 +541,11 @@ select {
 
 .canvas-object__media--video {
   pointer-events: auto;
-  cursor: pointer;
+  cursor: grab;
+}
+
+.canvas-object__media--video:active {
+  cursor: grabbing;
 }
 
 .canvas-object--text {
@@ -615,11 +620,10 @@ select {
   position: absolute;
   width: 14px;
   height: 14px;
-  z-index: 4;
+  z-index: 10;
   background: #fff;
   border: 2px solid #1d1d1f;
   border-radius: 2px;
-  z-index: 2;
   touch-action: none;
 }
 
@@ -870,6 +874,103 @@ select {
 .canvas-toolbar__btn:hover {
   background: var(--color-hover);
   color: var(--color-text);
+}
+
+.canvas-toolbar__btn--active {
+  background: var(--color-active);
+  color: var(--color-text);
+}
+
+.infinite-canvas--arrow-drawing {
+  cursor: crosshair;
+}
+
+.infinite-canvas--arrow-drawing .canvas-object {
+  cursor: crosshair;
+}
+
+/* Arrow layer */
+
+.arrow-draw-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 25;
+  cursor: crosshair;
+  touch-action: none;
+}
+
+.arrow-layer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 0;
+  height: 0;
+  overflow: visible;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.arrow-layer__handles {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.arrow-layer__line--selected {
+  filter: drop-shadow(0 0 1px rgba(29, 29, 31, 0.35));
+}
+
+.arrow-layer__handle {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #fff;
+  border: 1.5px solid #1d1d1f;
+  cursor: grab;
+  pointer-events: auto;
+  z-index: 6;
+}
+
+.arrow-layer__handle:active {
+  cursor: grabbing;
+}
+
+.arrow-toolbar {
+  position: absolute;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(20px);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  white-space: nowrap;
+  z-index: 10;
+  pointer-events: auto;
+}
+
+.arrow-toolbar__width {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.arrow-toolbar__width-value {
+  font-size: 11px;
+  min-width: 28px;
+  text-align: center;
+  color: var(--color-text-muted);
+}
+
+.arrow-toolbar__colors {
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
 /* Background picker */

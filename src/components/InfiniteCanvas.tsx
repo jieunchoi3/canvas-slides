@@ -6,7 +6,7 @@ import { ZoomControls } from './ZoomControls';
 import { BackgroundPicker } from './BackgroundPicker';
 import { clampZoom, computeFitViewport, screenToWorld } from '../utils/canvas';
 import { getGridDotColor } from '../utils/color';
-import { addMediaFilesAtPosition, getDroppedFiles } from '../utils/mediaUpload';
+import { addMediaFilesAtPosition, getDroppedFiles, getClipboardImageFiles } from '../utils/mediaUpload';
 import { isInteractiveMediaTarget } from '../utils/youtube';
 import { isEditingText } from '../utils/keyboard';
 import type { Viewport } from '../types';
@@ -46,6 +46,7 @@ export function InfiniteCanvas({
   const [isDragOver, setIsDragOver] = useState(false);
   const [localViewport, setLocalViewport] = useState<Viewport | null>(null);
   const panStart = useRef<{ x: number; y: number; vx: number; vy: number } | null>(null);
+  const lastPointerWorld = useRef<{ x: number; y: number } | null>(null);
   const presentationViewportsRef = useRef<Map<string, Viewport>>(new Map());
   const prevSlideIdRef = useRef(resolvedSlideId);
 
@@ -159,6 +160,38 @@ export function InfiniteCanvas({
     };
   }, [readOnly, selectedObjectId, resolvedSlideId, deleteObject]);
 
+  useEffect(() => {
+    if (readOnly) return;
+
+    const onPaste = async (e: ClipboardEvent) => {
+      if (isEditingText()) return;
+      if (!containerRef.current || !e.clipboardData) return;
+
+      const files = await getClipboardImageFiles(e.clipboardData);
+      if (files.length === 0) return;
+
+      e.preventDefault();
+
+      const rect = containerRef.current.getBoundingClientRect();
+      const slideId = resolvedSlideId;
+      const currentViewport =
+        useStore.getState().slides.find((s) => s.id === slideId)?.viewport ?? { x: 0, y: 0, zoom: 1 };
+
+      const { x, y } =
+        lastPointerWorld.current ??
+        screenToWorld(rect.left + rect.width / 2, rect.top + rect.height / 2, rect, currentViewport);
+
+      await addMediaFilesAtPosition(files, x, y, slideId, {
+        addObject,
+        updateObject,
+        deleteObject,
+      });
+    };
+
+    window.addEventListener('paste', onPaste);
+    return () => window.removeEventListener('paste', onPaste);
+  }, [readOnly, resolvedSlideId, addObject, updateObject, deleteObject]);
+
   const handleWheel = useCallback(
     (e: WheelEvent) => {
       if (!containerRef.current || !slide) return;
@@ -213,6 +246,11 @@ export function InfiniteCanvas({
   };
 
   const handlePointerMove = (e: React.PointerEvent) => {
+    if (containerRef.current && slide) {
+      const rect = containerRef.current.getBoundingClientRect();
+      lastPointerWorld.current = screenToWorld(e.clientX, e.clientY, rect, viewport);
+    }
+
     if (!isPanning || !panStart.current || !slide) return;
     const dx = e.clientX - panStart.current.x;
     const dy = e.clientY - panStart.current.y;

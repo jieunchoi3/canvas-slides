@@ -13,7 +13,35 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const addSlide = useStore((s) => s.addSlide);
   const deleteSlide = useStore((s) => s.deleteSlide);
   const updateSlideTitle = useStore((s) => s.updateSlideTitle);
+  const reorderSlides = useStore((s) => s.reorderSlides);
   const canDelete = slides.length > 1;
+
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const [dropIndex, setDropIndex] = useState<number | null>(null);
+
+  const handleDragStart = (index: number) => {
+    setDragIndex(index);
+  };
+
+  const handleDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    if (dragIndex !== null && dragIndex !== index) {
+      setDropIndex(index);
+    }
+  };
+
+  const handleDrop = (index: number) => {
+    if (dragIndex !== null && dragIndex !== index) {
+      reorderSlides(dragIndex, index);
+    }
+    setDragIndex(null);
+    setDropIndex(null);
+  };
+
+  const handleDragEnd = () => {
+    setDragIndex(null);
+    setDropIndex(null);
+  };
 
   return (
     <aside className={`sidebar ${collapsed ? 'sidebar--collapsed' : ''}`}>
@@ -46,9 +74,15 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
             isActive={slide.id === activeSlideId}
             canDelete={canDelete && !collapsed}
             collapsed={collapsed}
+            isDragging={dragIndex === index}
+            isDropTarget={dropIndex === index}
             onSelect={() => setActiveSlide(slide.id)}
             onDelete={() => void deleteSlide(slide.id)}
             onTitleChange={(title) => updateSlideTitle(slide.id, title)}
+            onDragStart={() => handleDragStart(index)}
+            onDragOver={(e) => handleDragOver(e, index)}
+            onDrop={() => handleDrop(index)}
+            onDragEnd={handleDragEnd}
           />
         ))}
       </nav>
@@ -56,7 +90,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
       <button
         type="button"
         className="new-slide-btn"
-            onClick={() => void addSlide()}
+        onClick={() => void addSlide()}
         title="New slide"
         aria-label="New slide"
       >
@@ -73,30 +107,46 @@ function SlideRow({
   isActive,
   canDelete,
   collapsed,
+  isDragging,
+  isDropTarget,
   onSelect,
   onDelete,
   onTitleChange,
+  onDragStart,
+  onDragOver,
+  onDrop,
+  onDragEnd,
 }: {
   slide: { id: string; title: string; objects: { type: string }[] };
   index: number;
   isActive: boolean;
   canDelete: boolean;
   collapsed: boolean;
+  isDragging: boolean;
+  isDropTarget: boolean;
   onSelect: () => void;
   onDelete: () => void;
   onTitleChange: (title: string) => void;
+  onDragStart: () => void;
+  onDragOver: (e: React.DragEvent) => void;
+  onDrop: () => void;
+  onDragEnd: () => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(slide.title);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
+    if (!editing) setDraft(slide.title);
+  }, [slide.title, editing]);
+
+  useEffect(() => {
     if (editing) inputRef.current?.select();
   }, [editing]);
 
-  const handleDoubleClick = (e: React.MouseEvent) => {
+  const startEditing = (e?: React.MouseEvent) => {
+    e?.stopPropagation();
     if (collapsed) return;
-    e.stopPropagation();
     setDraft(slide.title);
     setEditing(true);
   };
@@ -126,13 +176,30 @@ function SlideRow({
   }
 
   return (
-    <div className={`slide-row ${isActive ? 'slide-row--active' : ''}`}>
+    <div
+      className={`slide-row ${isActive ? 'slide-row--active' : ''} ${isDragging ? 'slide-row--dragging' : ''} ${isDropTarget ? 'slide-row--drop-target' : ''}`}
+      onDragOver={onDragOver}
+      onDrop={(e) => {
+        e.preventDefault();
+        onDrop();
+      }}
+    >
       <button
         type="button"
-        className="slide-row__main"
-        onClick={onSelect}
-        onDoubleClick={handleDoubleClick}
+        className="slide-row__drag"
+        draggable
+        onDragStart={(e) => {
+          e.dataTransfer.effectAllowed = 'move';
+          onDragStart();
+        }}
+        onDragEnd={onDragEnd}
+        title="Drag to reorder"
+        aria-label="Drag to reorder slide"
       >
+        <GripIcon />
+      </button>
+
+      <button type="button" className="slide-row__main" onClick={onSelect}>
         <span className="slide-preview">
           <SlidePreviewIcon type={previewIcon} />
         </span>
@@ -153,12 +220,28 @@ function SlideRow({
                 }
               }}
               onClick={(e) => e.stopPropagation()}
+              placeholder="Slide name"
             />
           ) : (
-            <span className="slide-title">{slide.title}</span>
+            <span className="slide-title" onDoubleClick={startEditing}>
+              {slide.title}
+            </span>
           )}
         </span>
       </button>
+
+      {!editing && (
+        <button
+          type="button"
+          className="slide-row__rename"
+          onClick={startEditing}
+          title="Rename slide"
+          aria-label={`Rename ${slide.title}`}
+        >
+          <PencilIcon />
+        </button>
+      )}
+
       {canDelete && (
         <button
           type="button"
@@ -171,6 +254,32 @@ function SlideRow({
         </button>
       )}
     </div>
+  );
+}
+
+function GripIcon() {
+  return (
+    <svg width="10" height="14" viewBox="0 0 10 14" fill="none" aria-hidden="true">
+      <circle cx="3" cy="2.5" r="1" fill="currentColor" />
+      <circle cx="7" cy="2.5" r="1" fill="currentColor" />
+      <circle cx="3" cy="7" r="1" fill="currentColor" />
+      <circle cx="7" cy="7" r="1" fill="currentColor" />
+      <circle cx="3" cy="11.5" r="1" fill="currentColor" />
+      <circle cx="7" cy="11.5" r="1" fill="currentColor" />
+    </svg>
+  );
+}
+
+function PencilIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true">
+      <path
+        d="M8.5 2.5l2 2L4.5 10.5H2.5v-2L8.5 2.5z"
+        stroke="currentColor"
+        strokeWidth="1.2"
+        strokeLinejoin="round"
+      />
+    </svg>
   );
 }
 

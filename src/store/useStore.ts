@@ -24,6 +24,7 @@ interface AppStore {
   deleteSlide: (id: string) => Promise<void>;
   setActiveSlide: (id: string) => void;
   updateSlideTitle: (id: string, title: string) => void;
+  reorderSlides: (fromIndex: number, toIndex: number) => void;
   updateSlideBackground: (id: string, backgroundColor: string) => void;
   updateViewport: (slideId: string, viewport: Partial<Viewport>) => void;
   setViewport: (slideId: string, viewport: Viewport) => void;
@@ -80,7 +81,7 @@ export const useStore = create<AppStore>((set, get) => ({
     }
 
     set({
-      slides: nextSlides,
+      slides: nextSlides.map((s, i) => ({ ...s, sortOrder: i })),
       activeSlideId: nextActiveId,
       selectedObjectId: null,
     });
@@ -96,6 +97,16 @@ export const useStore = create<AppStore>((set, get) => ({
     set((s) => ({
       slides: s.slides.map((slide) => (slide.id === id ? { ...slide, title } : slide)),
     })),
+
+  reorderSlides: (fromIndex, toIndex) => {
+    if (fromIndex === toIndex) return;
+    const slides = [...get().slides];
+    const [moved] = slides.splice(fromIndex, 1);
+    slides.splice(toIndex, 0, moved);
+    set({
+      slides: slides.map((slide, index) => ({ ...slide, sortOrder: index })),
+    });
+  },
 
   updateSlideBackground: (id, backgroundColor) =>
     set((s) => ({

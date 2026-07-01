@@ -1,9 +1,10 @@
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef, useEffect, useLayoutEffect } from 'react';
 import type { CanvasObject, ResizeHandle } from '../types';
 import { useStore } from '../store/useStore';
 import { youtubeEmbedUrl, sendYouTubeCommand, isInteractiveMediaTarget } from '../utils/youtube';
 import { FONT_FAMILIES } from '../utils/canvas';
 import { TextToolbar } from './TextToolbar';
+import { ObjectSelectionToolbar } from './ObjectSelectionToolbar';
 
 interface CanvasObjectRendererProps {
   object: CanvasObject;
@@ -190,6 +191,9 @@ export function CanvasObjectRenderer({
             />
           ))}
           {object.type === 'text' && <TextToolbar object={object} slideId={slideId} />}
+          {object.type !== 'text' && (
+            <ObjectSelectionToolbar slideId={slideId} objectId={object.id} />
+          )}
         </>
       )}
     </div>
@@ -324,7 +328,6 @@ function TextContent({
   const updateObject = useStore((s) => s.updateObject);
   const ref = useRef<HTMLDivElement>(null);
   const isComposing = useRef(false);
-  const lastSyncedText = useRef(object.text ?? '');
   const dragState = useRef<{
     startX: number;
     startY: number;
@@ -333,15 +336,20 @@ function TextContent({
     dragging: boolean;
   } | null>(null);
 
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.textContent = object.text ?? '';
+  }, [object.id]);
+
   useEffect(() => {
     const el = ref.current;
-    if (!el || isComposing.current) return;
+    if (!el || el === document.activeElement || isComposing.current) return;
     const nextText = object.text ?? '';
-    if (nextText !== lastSyncedText.current && el.textContent !== nextText) {
+    if (el.textContent !== nextText) {
       el.textContent = nextText;
-      lastSyncedText.current = nextText;
     }
-  }, [object.text, object.id]);
+  }, [object.text]);
 
   useEffect(() => {
     if (isSelected && !readOnly && ref.current && !dragState.current?.dragging) {
@@ -353,7 +361,6 @@ function TextContent({
     useStore.getState().slides.find((s) => s.id === slideId)?.viewport.zoom ?? 1;
 
   const syncText = (text: string) => {
-    lastSyncedText.current = text;
     updateObject(slideId, object.id, { text });
   };
 
@@ -429,6 +436,12 @@ function TextContent({
       onBlur={(e) => {
         if (isComposing.current) return;
         syncText(e.currentTarget.textContent ?? '');
+      }}
+      onKeyDown={(e) => {
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          (e.currentTarget as HTMLElement).blur();
+        }
       }}
     />
   );

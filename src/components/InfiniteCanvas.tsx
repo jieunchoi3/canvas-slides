@@ -8,6 +8,7 @@ import { clampZoom, computeFitViewport, screenToWorld } from '../utils/canvas';
 import { getGridDotColor } from '../utils/color';
 import { addMediaFilesAtPosition, getDroppedFiles } from '../utils/mediaUpload';
 import { isInteractiveMediaTarget } from '../utils/youtube';
+import { isEditingText } from '../utils/keyboard';
 import type { Viewport } from '../types';
 
 interface InfiniteCanvasProps {
@@ -133,20 +134,21 @@ export function InfiniteCanvas({
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
+      if (isEditingText()) return;
+
       if (e.code === 'Space' && !readOnly) {
         e.preventDefault();
         setSpaceHeld(true);
       }
       if (readOnly) return;
       if (e.key === 'Delete' || e.key === 'Backspace') {
-        const target = e.target as HTMLElement;
-        if (target.isContentEditable) return;
         if (selectedObjectId && resolvedSlideId) {
           deleteObject(resolvedSlideId, selectedObjectId);
         }
       }
     };
     const onKeyUp = (e: KeyboardEvent) => {
+      if (isEditingText()) return;
       if (e.code === 'Space') setSpaceHeld(false);
     };
     window.addEventListener('keydown', onKeyDown);

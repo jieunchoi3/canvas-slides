@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useStore } from '../store/useStore';
 import type { CanvasObject } from '../types';
 import { FONT_FAMILIES, TEXT_COLORS } from '../utils/canvas';
+import { DeleteObjectButton } from './DeleteObjectButton';
 
 interface TextToolbarProps {
   object: CanvasObject;
@@ -129,6 +130,10 @@ export function TextToolbar({ object, slideId }: TextToolbarProps) {
       >
         I
       </button>
+
+      <div className="text-toolbar__divider" aria-hidden="true" />
+
+      <DeleteObjectButton slideId={slideId} objectId={object.id} />
     </div>
   );
 }

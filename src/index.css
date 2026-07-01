@@ -733,6 +733,48 @@ select {
   background: var(--color-active);
 }
 
+.text-toolbar__divider {
+  width: 1px;
+  height: 20px;
+  background: var(--color-border-light);
+  margin: 0 2px;
+}
+
+/* Object selection toolbar */
+
+.object-toolbar {
+  position: absolute;
+  top: -44px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 6px;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(20px);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  z-index: 10;
+}
+
+.object-toolbar__delete {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  color: #c0392b;
+  transition: background var(--transition), color var(--transition);
+}
+
+.object-toolbar__delete:hover {
+  background: rgba(192, 57, 43, 0.1);
+  color: #a93226;
+}
+
 .text-toolbar__colors {
   display: flex;
   align-items: center;

@@ -19,6 +19,7 @@ interface AppStore {
   presentationSlideIndex: number;
   hydrated: boolean;
   loadError: string | null;
+  mediaAudioEnabled: boolean;
 
   addSlide: () => Promise<void>;
   deleteSlide: (id: string) => Promise<void>;
@@ -39,6 +40,7 @@ interface AppStore {
   nextSlide: () => void;
   prevSlide: () => void;
   setPresentationSlideIndex: (index: number) => void;
+  enableMediaAudio: () => void;
 }
 
 export const useStore = create<AppStore>((set, get) => ({
@@ -49,6 +51,7 @@ export const useStore = create<AppStore>((set, get) => ({
   presentationSlideIndex: 0,
   hydrated: false,
   loadError: null,
+  mediaAudioEnabled: false,
 
   addSlide: async () => {
     const sortOrder = get().slides.length;
@@ -173,10 +176,11 @@ export const useStore = create<AppStore>((set, get) => ({
       isPresenting: true,
       presentationSlideIndex: 0,
       selectedObjectId: null,
+      mediaAudioEnabled: false,
     });
   },
 
-  exitPresentation: () => set({ isPresenting: false }),
+  exitPresentation: () => set({ isPresenting: false, mediaAudioEnabled: false }),
 
   nextSlide: () => {
     const { slides, presentationSlideIndex } = get();
@@ -193,6 +197,8 @@ export const useStore = create<AppStore>((set, get) => ({
   },
 
   setPresentationSlideIndex: (index) => set({ presentationSlideIndex: index }),
+
+  enableMediaAudio: () => set({ mediaAudioEnabled: true }),
 }));
 
 let saveTimeout: ReturnType<typeof setTimeout> | undefined;

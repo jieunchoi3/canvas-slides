@@ -13,6 +13,16 @@ export function parseYouTubeId(url: string): string | null {
   return null;
 }
 
-export function youtubeEmbedUrl(videoId: string): string {
-  return `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1&loop=1&playlist=${videoId}&controls=0&modestbranding=1&rel=0`;
+export function youtubeEmbedUrl(videoId: string, muted = false): string {
+  const params = new URLSearchParams({
+    autoplay: '1',
+    mute: muted ? '1' : '0',
+    loop: '1',
+    playlist: videoId,
+    controls: '1',
+    modestbranding: '1',
+    rel: '0',
+    enablejsapi: '1',
+  });
+  return `https://www.youtube.com/embed/${videoId}?${params.toString()}`;
 }

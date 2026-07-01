@@ -485,9 +485,14 @@ select {
   border-radius: 2px;
 }
 
+.canvas-object__media--video,
+.canvas-object__youtube {
+  pointer-events: auto;
+  cursor: pointer;
+}
+
 .canvas-object__youtube {
   border: none;
-  pointer-events: none;
 }
 
 .canvas-object__text {

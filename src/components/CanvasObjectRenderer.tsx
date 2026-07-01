@@ -136,14 +136,7 @@ export function CanvasObjectRenderer({
       )}
 
       {object.type === 'video' && object.src && (
-        <video
-          src={object.src}
-          autoPlay
-          muted
-          loop
-          playsInline
-          className="canvas-object__media"
-        />
+        <VideoMedia src={object.src} isSelected={isSelected} readOnly={readOnly} />
       )}
 
       {object.uploading && (
@@ -154,12 +147,10 @@ export function CanvasObjectRenderer({
       )}
 
       {object.type === 'youtube' && object.youtubeId && (
-        <iframe
-          src={youtubeEmbedUrl(object.youtubeId)}
-          title="YouTube embed"
-          className="canvas-object__media canvas-object__youtube"
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-          allowFullScreen
+        <YouTubeEmbed
+          videoId={object.youtubeId}
+          isSelected={isSelected}
+          readOnly={readOnly}
         />
       )}
 
@@ -188,6 +179,88 @@ export function CanvasObjectRenderer({
         </>
       )}
     </div>
+  );
+}
+
+function VideoMedia({
+  src,
+  isSelected,
+  readOnly,
+}: {
+  src: string;
+  isSelected: boolean;
+  readOnly: boolean;
+}) {
+  const mediaAudioEnabled = useStore((s) => s.mediaAudioEnabled);
+  const enableMediaAudio = useStore((s) => s.enableMediaAudio);
+  const ref = useRef<HTMLVideoElement>(null);
+
+  const tryUnmute = useCallback(() => {
+    const video = ref.current;
+    if (!video) return;
+    video.muted = false;
+    video.volume = 1;
+    enableMediaAudio();
+    void video.play().catch(() => {
+      video.muted = true;
+      void video.play();
+    });
+  }, [enableMediaAudio]);
+
+  useEffect(() => {
+    const video = ref.current;
+    if (!video) return;
+    video.muted = true;
+    void video.play().catch(() => {});
+  }, [src]);
+
+  useEffect(() => {
+    if (isSelected || mediaAudioEnabled) tryUnmute();
+  }, [isSelected, mediaAudioEnabled, tryUnmute]);
+
+  return (
+    <video
+      ref={ref}
+      src={src}
+      autoPlay
+      loop
+      playsInline
+      className="canvas-object__media canvas-object__media--video"
+      onClick={(e) => {
+        if (readOnly) e.stopPropagation();
+        tryUnmute();
+      }}
+    />
+  );
+}
+
+function YouTubeEmbed({
+  videoId,
+  isSelected,
+  readOnly,
+}: {
+  videoId: string;
+  isSelected: boolean;
+  readOnly: boolean;
+}) {
+  const mediaAudioEnabled = useStore((s) => s.mediaAudioEnabled);
+  const enableMediaAudio = useStore((s) => s.enableMediaAudio);
+  const shouldUnmute = isSelected || mediaAudioEnabled;
+  const embedSrc = youtubeEmbedUrl(videoId, !shouldUnmute);
+
+  return (
+    <iframe
+      key={embedSrc}
+      src={embedSrc}
+      title="YouTube embed"
+      className="canvas-object__media canvas-object__youtube"
+      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+      allowFullScreen
+      onClick={() => enableMediaAudio()}
+      onPointerDown={(e) => {
+        if (readOnly) e.stopPropagation();
+      }}
+    />
   );
 }
 

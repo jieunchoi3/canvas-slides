@@ -32,6 +32,18 @@ export function PresentationView() {
     };
   }, []);
 
+  const enableMediaAudio = useStore((s) => s.enableMediaAudio);
+
+  useEffect(() => {
+    const unlock = () => enableMediaAudio();
+    window.addEventListener('pointerdown', unlock, { once: true });
+    window.addEventListener('keydown', unlock, { once: true });
+    return () => {
+      window.removeEventListener('pointerdown', unlock);
+      window.removeEventListener('keydown', unlock);
+    };
+  }, [enableMediaAudio]);
+
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {

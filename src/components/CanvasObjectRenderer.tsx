@@ -5,6 +5,9 @@ import { youtubeEmbedUrl, sendYouTubeCommand, isInteractiveMediaTarget } from '.
 import { FONT_FAMILIES } from '../utils/canvas';
 import { TextToolbar } from './TextToolbar';
 import { ObjectSelectionToolbar } from './ObjectSelectionToolbar';
+import { MediaSelectionToolbar } from './MediaSelectionToolbar';
+import { MediaMuteToggle } from './MediaMuteToggle';
+import { isMediaMuted } from './MediaSelectionToolbar';
 
 interface CanvasObjectRendererProps {
   object: CanvasObject;
@@ -147,7 +150,6 @@ export function CanvasObjectRenderer({
           src={object.src}
           object={object}
           slideId={slideId}
-          isSelected={isSelected}
           readOnly={readOnly}
         />
       )}
@@ -173,7 +175,7 @@ export function CanvasObjectRenderer({
               </div>
             </div>
           )}
-          <YouTubeEmbed videoId={object.youtubeId} isSelected={isSelected} objectId={object.id} />
+          <YouTubeEmbed object={object} slideId={slideId} readOnly={readOnly} />
         </>
       )}
 
@@ -199,8 +201,12 @@ export function CanvasObjectRenderer({
             />
           ))}
           {object.type === 'text' && <TextToolbar object={object} slideId={slideId} />}
-          {object.type !== 'text' && (
-            <ObjectSelectionToolbar slideId={slideId} objectId={object.id} />
+          {object.type === 'video' || object.type === 'youtube' ? (
+            <MediaSelectionToolbar object={object} slideId={slideId} />
+          ) : (
+            object.type !== 'text' && (
+              <ObjectSelectionToolbar slideId={slideId} objectId={object.id} />
+            )
           )}
         </>
       )}
@@ -212,19 +218,15 @@ function VideoMedia({
   src,
   object,
   slideId,
-  isSelected,
   readOnly,
 }: {
   src: string;
   object: CanvasObject;
   slideId: string;
-  isSelected: boolean;
   readOnly: boolean;
 }) {
   const selectObject = useStore((s) => s.selectObject);
   const updateObject = useStore((s) => s.updateObject);
-  const mediaAudioEnabled = useStore((s) => s.mediaAudioEnabled);
-  const enableMediaAudio = useStore((s) => s.enableMediaAudio);
   const ref = useRef<HTMLVideoElement>(null);
   const dragState = useRef<{
     startX: number;
@@ -234,28 +236,28 @@ function VideoMedia({
     dragging: boolean;
   } | null>(null);
 
-  const tryUnmute = useCallback(() => {
-    const video = ref.current;
-    if (!video) return;
-    video.muted = false;
-    video.volume = 1;
-    enableMediaAudio();
-    void video.play().catch(() => {
-      video.muted = true;
-      void video.play();
-    });
-  }, [enableMediaAudio]);
+  const muted = isMediaMuted(object);
 
   useEffect(() => {
     const video = ref.current;
     if (!video) return;
-    video.muted = true;
     void video.play().catch(() => {});
   }, [src]);
 
   useEffect(() => {
-    if (isSelected || mediaAudioEnabled) tryUnmute();
-  }, [isSelected, mediaAudioEnabled, tryUnmute]);
+    const video = ref.current;
+    if (!video) return;
+    video.muted = muted;
+    if (!muted) video.volume = 1;
+  }, [muted]);
+
+  const handleVolumeChange = () => {
+    const video = ref.current;
+    if (!video) return;
+    if (video.muted !== muted) {
+      updateObject(slideId, object.id, { muted: video.muted });
+    }
+  };
 
   const getZoom = () =>
     useStore.getState().slides.find((s) => s.id === slideId)?.viewport.zoom ?? 1;
@@ -295,76 +297,71 @@ function VideoMedia({
   };
 
   const handlePointerUp = () => {
-    if (!dragState.current || readOnly) {
-      dragState.current = null;
-      return;
-    }
-
-    if (!dragState.current.dragging) {
-      tryUnmute();
-    }
-
     dragState.current = null;
   };
 
   return (
-    <video
-      ref={ref}
-      src={src}
-      autoPlay
-      loop
-      playsInline
-      controls
-      className="canvas-object__media canvas-object__media--video"
-      onPointerDown={handlePointerDown}
-      onPointerMove={handlePointerMove}
-      onPointerUp={handlePointerUp}
-    />
+    <>
+      <video
+        ref={ref}
+        src={src}
+        autoPlay
+        loop
+        playsInline
+        controls
+        muted={muted}
+        className="canvas-object__media canvas-object__media--video"
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onVolumeChange={handleVolumeChange}
+      />
+      {readOnly && <MediaMuteToggle object={object} slideId={slideId} />}
+    </>
   );
 }
 
 function YouTubeEmbed({
-  videoId,
-  isSelected,
-  objectId,
+  object,
+  slideId,
+  readOnly,
 }: {
-  videoId: string;
-  isSelected: boolean;
-  objectId: string;
+  object: CanvasObject;
+  slideId: string;
+  readOnly: boolean;
 }) {
   const selectObject = useStore((s) => s.selectObject);
-  const mediaAudioEnabled = useStore((s) => s.mediaAudioEnabled);
-  const enableMediaAudio = useStore((s) => s.enableMediaAudio);
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const videoId = object.youtubeId ?? '';
   const embedSrc = youtubeEmbedUrl(videoId);
+  const muted = isMediaMuted(object);
 
-  const tryUnmute = useCallback(() => {
+  const syncMute = useCallback(() => {
     const iframe = iframeRef.current;
     if (!iframe) return;
-    enableMediaAudio();
-    sendYouTubeCommand(iframe, 'unMute');
-    sendYouTubeCommand(iframe, 'playVideo');
-  }, [enableMediaAudio]);
+    sendYouTubeCommand(iframe, muted ? 'muteVideo' : 'unMute');
+  }, [muted]);
 
   useEffect(() => {
     const iframe = iframeRef.current;
     if (!iframe) return;
 
     const onLoad = () => {
-      if (isSelected || mediaAudioEnabled) tryUnmute();
+      syncMute();
+      sendYouTubeCommand(iframe, 'playVideo');
     };
 
     iframe.addEventListener('load', onLoad);
     return () => iframe.removeEventListener('load', onLoad);
-  }, [embedSrc, isSelected, mediaAudioEnabled, tryUnmute]);
+  }, [embedSrc, syncMute]);
 
   useEffect(() => {
-    if (isSelected || mediaAudioEnabled) tryUnmute();
-  }, [isSelected, mediaAudioEnabled, tryUnmute]);
+    syncMute();
+  }, [syncMute]);
 
   const blockCanvasPointer = (e: React.PointerEvent) => {
     e.stopPropagation();
-    selectObject(objectId);
+    selectObject(object.id);
   };
 
   return (
@@ -383,6 +380,7 @@ function YouTubeEmbed({
         allowFullScreen
         onPointerDown={blockCanvasPointer}
       />
+      {readOnly && <MediaMuteToggle object={object} slideId={slideId} />}
     </div>
   );
 }

@@ -19,7 +19,6 @@ interface AppStore {
   presentationSlideIndex: number;
   hydrated: boolean;
   loadError: string | null;
-  mediaAudioEnabled: boolean;
   arrowDrawingMode: boolean;
 
   addSlide: () => Promise<void>;
@@ -41,7 +40,6 @@ interface AppStore {
   nextSlide: () => void;
   prevSlide: () => void;
   setPresentationSlideIndex: (index: number) => void;
-  enableMediaAudio: () => void;
   setArrowDrawingMode: (enabled: boolean) => void;
 }
 
@@ -53,7 +51,6 @@ export const useStore = create<AppStore>((set, get) => ({
   presentationSlideIndex: 0,
   hydrated: false,
   loadError: null,
-  mediaAudioEnabled: false,
   arrowDrawingMode: false,
 
   addSlide: async () => {
@@ -197,12 +194,11 @@ export const useStore = create<AppStore>((set, get) => ({
       isPresenting: true,
       presentationSlideIndex: 0,
       selectedObjectId: null,
-      mediaAudioEnabled: false,
       arrowDrawingMode: false,
     });
   },
 
-  exitPresentation: () => set({ isPresenting: false, mediaAudioEnabled: false, arrowDrawingMode: false }),
+  exitPresentation: () => set({ isPresenting: false, arrowDrawingMode: false }),
 
   nextSlide: () => {
     const { slides, presentationSlideIndex } = get();
@@ -219,8 +215,6 @@ export const useStore = create<AppStore>((set, get) => ({
   },
 
   setPresentationSlideIndex: (index) => set({ presentationSlideIndex: index }),
-
-  enableMediaAudio: () => set({ mediaAudioEnabled: true }),
 
   setArrowDrawingMode: (enabled) => set({ arrowDrawingMode: enabled }),
 }));

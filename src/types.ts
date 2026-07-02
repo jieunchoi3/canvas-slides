@@ -23,6 +23,7 @@ export interface CanvasObject {
   fontWeight?: 'normal' | 'bold';
   fontStyle?: 'normal' | 'italic';
   uploading?: boolean;
+  muted?: boolean;
   start?: ArrowEndpoint;
   end?: ArrowEndpoint;
   strokeColor?: string;
